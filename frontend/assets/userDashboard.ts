@@ -1,37 +1,67 @@
 interface UserProfile {
   name: string;
   email: string;
-  joinDate: string;
+  createdAt: string;
 }
 
 interface Project {
   id: string;
   name: string;
   description: string;
-  status: 'active' | 'completed' | 'pending' | 'cancelled';
+  createdAt: string;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+}
+async function authFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem("authToken");
+
+  if (!token) {
+    throw new Error("No auth token found");
+  }
+
+  const headers = {
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! Status: ${response.status}`);
+  }
+
+  return response.json() as Promise<T>;
 }
 
 async function fetchProfile(): Promise<UserProfile> {
-  const res = await fetch("/api/user/profile", { credentials: "include" });
-  if (!res.ok) throw new Error("Failed to fetch profile");
-  return res.json();
+  return authFetch<UserProfile>("http://localhost:3000/users/profile");
 }
 
 async function fetchUserProjects(): Promise<Project[]> {
-  const res = await fetch("/api/user/projects", { credentials: "include" });
-  if (!res.ok) throw new Error("Failed to fetch projects");
-  return res.json();
+  return authFetch<Project[]>("http://localhost:3000/projects");
 }
 
-async function markProjectCompleted(id: number): Promise<void> {
-  const res = await fetch(`/api/project/${id}/complete`, {
+async function markProjectCompleted(id: string): Promise<unknown> {
+  const markComplete = await authFetch<Project>(`http://localhost:3000/projects/${id}/complete`, {
     method: "POST",
-    credentials: "include",
   });
-  if (!res.ok) throw new Error("Failed to complete project");
+  
+
+  if (markComplete.status === 'COMPLETED') {
+    return await authFetch<string>(`http://localhost:3000/projects/${markComplete.assignedUser.id}/unassign-project`,{
+      method: 'DELETE'
+    })
+  }
+
 }
+
 
 document.addEventListener("DOMContentLoaded", async () => {
+  console.log('LOADING PAGE');
+  
   const nameEl = document.getElementById("current-user-name");
   const emailEl = document.getElementById("profile-email");
   const joinDateEl = document.getElementById("profile-date");
@@ -45,16 +75,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const cancelBtn = document.getElementById("cancel-completion");
   const closeBtn = document.querySelector(".close-btn") as HTMLElement;
 
-  let selectedProjectId: number | null = null;
+  let selectedProjectId: string | null = null;
 
   try {
     const profile = await fetchProfile();
-    nameEl!.textContent = profile.name;
-    profileNameEl!.textContent = profile.name;
-    emailEl!.textContent = profile.email;
-    joinDateEl!.textContent = profile.joinDate;
+    console.log("USER PROFILE", profile)
+    document.getElementById("current-user-name")!.innerHTML = profile.name;
+        document.getElementById("current-user-name")!.innerHTML = profile.name;
+       document.getElementById("profile-email")!.innerHTML = profile.email;
+    document.getElementById("profile-date")!.innerHTML = profile.createdAt;
+
   } catch (err) {
-    alert("Could not load profile.");
+    console.error("USER PROFILE ERROR", err)
+    // alert("Could not load profile.");
   }
 
   try {
@@ -75,13 +108,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
   } catch (err) {
-    alert("Could not load projects.");
+    // alert("Could not load projects.");
+    console.error("Projects Error:", err)
   }
 
   projectContainer?.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
     if (target.tagName === "BUTTON" && target.dataset.id) {
-      selectedProjectId = parseInt(target.dataset.id);
+      selectedProjectId = target.dataset.id;
       completionModal.classList.add("show");
     }
   });
@@ -89,6 +123,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   closeBtn?.addEventListener("click", () => completionModal.classList.remove("show"));
   cancelBtn?.addEventListener("click", () => completionModal.classList.remove("show"));
   confirmBtn?.addEventListener("click", async () => {
+
     if (selectedProjectId !== null) {
       try {
         await markProjectCompleted(selectedProjectId);
@@ -104,6 +139,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   logoutBtn?.addEventListener("click", async (e) => {
     e.preventDefault();
     await fetch("/api/user/logout", { method: "POST", credentials: "include" });
-    window.location.href = "login.html";
+    window.location.href = "../pages/login.html";
   });
 });

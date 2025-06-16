@@ -1,4 +1,34 @@
-// login.ts
+const BASE_URL = "http://localhost:3000";
+
+interface LoginResponse {
+  message?: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  token?: string;
+  role?: string;
+  [key: string]: any;
+}
+
+// Token management functions
+function setAuthToken(token: string, remember: boolean = false): void {
+  if (remember) {
+    localStorage.setItem('authToken', token);
+  } else {
+    sessionStorage.setItem('authToken', token);
+  }
+}
+
+function clearAuthToken(): void {
+  localStorage.removeItem('authToken');
+  sessionStorage.removeItem('authToken');
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("loginForm") as HTMLFormElement | null;
@@ -7,6 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const togglePassword = document.getElementById("togglePassword") as HTMLButtonElement | null;
   const passwordInput = document.getElementById("password") as HTMLInputElement | null;
 
+  // Toggle password visibility
   if (togglePassword && passwordInput) {
     togglePassword.addEventListener("click", () => {
       const type = passwordInput.type === "password" ? "text" : "password";
@@ -18,13 +49,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Form submission handler
   if (loginForm && loginBtn && btnLoader) {
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
+      // Disable form and show loader
       loginBtn.disabled = true;
       btnLoader.style.display = "inline-block";
 
+      // Get form values
       const emailInput = document.getElementById("email") as HTMLInputElement | null;
       const passwordInput = document.getElementById("password") as HTMLInputElement | null;
       const rememberInput = document.getElementById("remember") as HTMLInputElement | null;
@@ -33,29 +67,106 @@ document.addEventListener("DOMContentLoaded", () => {
       const password = passwordInput?.value || "";
       const remember = rememberInput?.checked || false;
 
-      const payload = { email, password, remember };
+      // Validate inputs
+      if (!email || !password) {
+        alert("Please enter both email and password.");
+        loginBtn.disabled = false;
+        btnLoader.style.display = "none";
+        return;
+      }
 
       try {
-        const res = await fetch("/api/login", {
+        console.log("Attempting login for:", email);
+
+        const response = await fetch(`${BASE_URL}/auth/login`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          headers: { 
+            "Content-Type": "application/json" 
+          },
+          body: JSON.stringify({ email, password }),
         });
 
-        const result = await res.json();
+        console.log("Login response status:", response.status);
 
-        if (res.ok) {
-          window.location.href = "/dashboard.html";
+        let result: LoginResponse = { message: "Unknown error" };
+        
+        // Check if response is JSON
+        const contentType = response.headers.get("content-type");
+        if (contentType?.includes("application/json")) {
+          result = await response.json();
         } else {
-          alert(result.message || "Login failed");
+          const textResponse = await response.text();
+          console.error("Non-JSON response:", textResponse);
+          throw new Error("Server returned invalid response");
         }
-      } catch (err) {
-        console.error("Login error:", err);
-        alert("Something went wrong. Please try again.");
+
+        console.log("Login result:", result);
+
+        if (response.ok) {
+          // Check if we received a token
+          if (result.access_token) {
+            // Store the token
+            setAuthToken(result.access_token, remember);
+            localStorage.setItem("authToken", result.access_token)
+            console.log("Token stored successfully");
+          } else {
+            console.warn("No token received from server");
+          }
+
+          // Determine redirect based on user role
+          const userRole = result.user?.role || result.role;
+          
+          console.log("User role:", userRole);
+
+          // Show success message
+          alert(`Welcome back, ${result.user?.name || 'User'}!`);
+          
+          // Redirect based on role
+          if (userRole === "ADMIN") {
+            window.location.href = "../dashboard/adminDashboard.html";
+          } else if (userRole === "USER") {
+            window.location.href = "../dashboard/userDashboard.html";
+          } else {
+            // Fallback redirect if role is not recognized
+            console.warn("Unknown user role:", userRole);
+            window.location.href = "../dashboard/userDashboard.html";
+          }
+        } else {
+          // Handle login failure
+          let errorMessage = "Login failed";
+          
+          if (result.message) {
+            errorMessage = result.message;
+          } else if (response.status === 401) {
+            errorMessage = "Invalid email or password";
+          } else if (response.status === 429) {
+            errorMessage = "Too many login attempts. Please try again later.";
+          } else if (response.status >= 500) {
+            errorMessage = "Server error. Please try again later.";
+          }
+          
+          alert(errorMessage);
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+        
+        let errorMessage = "An error occurred during login.";
+        
+        if (error instanceof TypeError && error.message.includes("fetch")) {
+          errorMessage = "Cannot connect to server. Please check if the server is running.";
+        } else if (error instanceof Error) {
+          errorMessage = error.message;
+        }
+        
+        alert(errorMessage);
       } finally {
+        // Re-enable form
         loginBtn.disabled = false;
         btnLoader.style.display = "none";
       }
     });
   }
+
+  // Clear any existing tokens on login page load
+  clearAuthToken();
 });
