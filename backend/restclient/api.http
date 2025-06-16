@@ -2,8 +2,7 @@
 
 # Variables
 @baseUrl = http://localhost:3000
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYWFmMzUwMS1hMDYxLTQ1YTQtYTNiYS00YmZiOTBlM2ExYjMiLCJlbWFpbCI6ImpvaG4uZG9lQGV4YW1wbGUuY29tIiwicm9sZSI6IlVTRVIiLCJpYXQiOjE3NDk5Mjg1MDEsImV4cCI6MTc1MDAxNDkwMX0.GA-FcUruVr7DBbwdSLTS7IRBqu-Eogbo5B_ENBThXwI
-
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZDRkZWI5Mi1lNzQxLTRmZTctYmM1MS02ZmQxZjFjMzJiYzciLCJlbWFpbCI6ImpvaG4uZG9lQGV4YW1wbGUuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzQ5OTgxMjYxLCJleHAiOjE3NDk5ODQ4NjF9.lMfZrwhPPq3HCEF4KSAvQsRbA8WGaFQTmGMN_F3I5wM
 ### Authentication Endpoints
 
 # Register
@@ -11,8 +10,8 @@ POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
-  "name": "John Doe",
-  "email": "john.doe@example.com",
+  "name": "Jane Doe",
+  "email": "jane.doe@example.com",
   "password": "StrongPass123!",
   "role": "USER"
 }
@@ -53,7 +52,7 @@ GET {{baseUrl}}/users/role/USER
 Authorization: Bearer {{token}}
 
 ### Get Specific User
-GET {{baseUrl}}/users/{{userId}}
+GET {{baseUrl}}/users/{9d4deb92-e741-4fe7-bc51-6fd1f1c32bc7}
 Authorization: Bearer {{token}}
 
 ### Create User (Admin)
@@ -69,7 +68,7 @@ Content-Type: application/json
 }
 
 ### Update User
-PUT {{baseUrl}}/users/{{userId}}
+PUT {{baseUrl}}/users/{9d4deb92-e741-4fe7-bc51-6fd1f1c32bc7}
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -79,7 +78,7 @@ Content-Type: application/json
 }
 
 ### Change Password
-PUT {{baseUrl}}/users/{{userId}}/change-password
+PUT {{baseUrl}}/users/{9d4deb92-e741-4fe7-bc51-6fd1f1c32bc7}/change-password
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -89,11 +88,11 @@ Content-Type: application/json
 }
 
 ### Deactivate User
-DELETE {{baseUrl}}/users/{{userId}}
+DELETE {{baseUrl}}/users/{9d4deb92-e741-4fe7-bc51-6fd1f1c32bc7}
 Authorization: Bearer {{token}}
 
 ### Permanent Delete User (Admin)
-DELETE {{baseUrl}}/users/{{userId}}/permanent
+DELETE {{baseUrl}}/users/{9d4deb92-e741-4fe7-bc51-6fd1f1c32bc7}/permanent
 Authorization: Bearer {{token}}
 
 ### Project Endpoints
@@ -106,7 +105,7 @@ Content-Type: application/json
 {
   "name": "New Project",
   "description": "Project description",
-  "endDate": "2024-12-31"
+  "endDate": "2025-12-31"
 }
 
 ### Get All Projects
@@ -114,11 +113,11 @@ GET {{baseUrl}}/projects
 Authorization: Bearer {{token}}
 
 ### Get Specific Project
-GET {{baseUrl}}/projects/{{projectId}}
+GET {{baseUrl}}/projects/{bdcf64bc-5a2e-4c28-b99f-6075e8ee3549}
 Authorization: Bearer {{token}}
 
 ### Update Project
-PUT {{baseUrl}}/projects/{{projectId}}
+PUT {{baseUrl}}/projects/{bdcf64bc-5a2e-4c28-b99f-6075e8ee3549}
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -129,20 +128,20 @@ Content-Type: application/json
 
 ### Assign Project to User
 POST {{baseUrl}}/projects/assign
-Authorization: Bearer {{token}}
+Authorization: Bearer {bdcf64bc-5a2e-4c28-b99f-6075e8ee3549}
 Content-Type: application/json
 
 {
-  "projectId": "{{projectId}}",
-  "userId": "{{userId}}"
+  "projectId": "{bdcf64bc-5a2e-4c28-b99f-6075e8ee3549}",
+  "userId": "{bff07ddd-c062-4436-9857-e3c5a52e7336}"
 }
 
 ### Complete Project
-POST {{baseUrl}}/projects/{{projectId}}/complete
+POST {{baseUrl}}/projects/{bdcf64bc-5a2e-4c28-b99f-6075e8ee3549}/complete
 Authorization: Bearer {{token}}
 
 ### Delete Project
-DELETE {{baseUrl}}/projects/{{projectId}}
+DELETE {{baseUrl}}/projects/{bdcf64bc-5a2e-4c28-b99f-6075e8ee3549}
 Authorization: Bearer {{token}}
 
 ### Permission Endpoints

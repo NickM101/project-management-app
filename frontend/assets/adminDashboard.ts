@@ -28,7 +28,7 @@ interface DashboardStats {
 }
 
 // Simple API fetch functions
-const API_BASE = 'http://localhost:3000/api'; // Update with your backend URL
+const API_BASE = 'http://localhost:3000/api';
 
 const apiFetch = async (url: string, options: RequestInit = {}) => {
   const response = await fetch(`${API_BASE}${url}`, {
