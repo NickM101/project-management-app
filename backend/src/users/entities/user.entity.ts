@@ -1,16 +1,7 @@
-import { UserRole } from 'generated/prisma';
+// user-response.dto.ts
+import { UserRole } from '../../generated/prisma';
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  password: string;
-  role: UserRole;
-  profileImage?: string;
-  is_active: boolean;
-}
-
-export interface UserResponse {
+export class UserResponseDto {
   id: string;
   name: string;
   email: string;
@@ -18,4 +9,8 @@ export interface UserResponse {
   role: UserRole;
   profileImage?: string;
   is_active: boolean;
+
+  constructor(partial: Partial<UserResponseDto>) {
+    Object.assign(this, partial);
+  }
 }

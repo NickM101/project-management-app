@@ -20,7 +20,9 @@ import {
   ApiParam, 
   ApiQuery 
 } from '@nestjs/swagger';
-import { ProjectStatus, UserRole } from 'generated/prisma';
+import { ProjectStatus } from '@generated/prisma';
+import { UserRole } from 'src/auth/decorators/roles.decorator';
+
 
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';

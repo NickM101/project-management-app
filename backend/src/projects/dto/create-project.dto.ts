@@ -10,15 +10,15 @@ import {
   } from 'class-validator';
   import { Type } from 'class-transformer';
   import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-  import { ProjectStatus } from 'generated/prisma';
+import { ProjectStatus } from '../../generated/prisma';
 import { AuthUser } from 'src/auth/interfaces/auth.interface';
   
   export class CreateProjectDto {
     @ApiProperty({ description: 'Project name', minLength: 2, maxLength: 100 })
-    @IsString({ message: 'Name must be a string' })
+    @IsString({ message:   'Name must be a string' })
     @IsNotEmpty({ message: 'Name is required' })
-    @MinLength(2, { message: 'Name must be at least 2 characters long' })
-    @MaxLength(100, { message: 'Name must not exceed 100 characters' })
+    @MinLength(2, { message:'Name must be at least 2 characters long' })
+    @MaxLength(100, { message:'Name must not exceed 100 characters' })
     name: string;
   
     @ApiPropertyOptional({ description: 'Project description', maxLength: 1000 })

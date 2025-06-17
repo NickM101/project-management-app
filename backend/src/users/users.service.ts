@@ -1,468 +1,182 @@
 import {
-  ConflictException,
   Injectable,
+  ConflictException,
   NotFoundException,
   InternalServerErrorException,
   BadRequestException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
-import { UserRole } from 'generated/prisma';
-import { getPrismaClient } from 'src/config/prisma.config';
-
+import { PrismaService } from 'src/prisma/prisma.service';
+import { UserRole } from '../auth/interfaces/user-role';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserResponseDto } from './dto/create-user.dto';
-import { User } from './interfaces/user.interface';
+import { UserResponseDto } from './dto/user-response.dto';
+import { MessageResponseDto } from './dto/message-response.dto';
 
 @Injectable()
 export class UsersService {
-  private prisma = getPrismaClient();
-  private readonly saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+  private readonly saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS ?? '12', 10);
 
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ========== CREATE ==========
   async createUser(data: CreateUserDto): Promise<UserResponseDto> {
-    try {
-      const existingUser = await this.prisma.user.findUnique({
-        where: { email: data.email },
-      });
-
-      if (existingUser) {
-        throw new ConflictException(
-          `User with email ${data.email} already exists`,
-        );
-      }
-
-      const hashedPassword = await bcrypt.hash(data.password, this.saltRounds);
-
-      const user = await this.prisma.user.create({
-        data: {
-          name: data.name,
-          email: data.email,
-          password: hashedPassword,
-          role: data.role || UserRole.USER,
-          isActive: data.isActive ?? true,
-        },
-        include: {
-          assignedProject: {
-            select: { id: true, name: true, status: true }
-          }
-        }
-      });
-
-      return this.toResponseDto(user);
-    } catch (error) {
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new InternalServerErrorException(
-        `Failed to create user: ${error.message}`,
-      );
+    const existingUser = await this.prisma.user.findUnique({ where: { email: data.email } });
+    if (existingUser) {
+      throw new ConflictException(`User with email ${data.email} already exists`);
     }
+
+    const hashedPassword = await bcrypt.hash(data.password, this.saltRounds);
+
+    const user = await this.prisma.user.create({
+      data: {
+        name: data.name,
+        email: data.email,
+        password: hashedPassword,
+        role: data.role || UserRole.USER,
+        isActive: data.isActive ?? true,
+        profileImageId: data.profileImageId ?? '',
+        profileImageUrl: data.profileImageUrl ?? '',
+      },
+      include: { assignedProject: true },
+    });
+
+    return this.toResponseDto(user);
+  }
+
+  // ========== FIND ==========
+  async findOneUser(id: string): Promise<UserResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: { assignedProject: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return this.toResponseDto(user);
+  }
+
+  async findUserByEmail(email: string) {
+    return this.prisma.user.findUnique({ where: { email } });
   }
 
   async findAllUsers(): Promise<UserResponseDto[]> {
-    try {
-      const users = await this.prisma.user.findMany({
-        include: {
-          assignedProject: {
-            select: { id: true, name: true, status: true }
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-      return users.map(user => this.toResponseDto(user));
-    } catch (error) {
-      throw new InternalServerErrorException('Failed to retrieve users');
-    }
-  }
-
-  async findActiveUsers(): Promise<UserResponseDto[]> {
-    try {
-      const users = await this.prisma.user.findMany({
-        where: { isActive: true },
-        include: {
-          assignedProject: {
-            select: { id: true, name: true, status: true }
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-      return users.map(user => this.toResponseDto(user));
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'Failed to retrieve active users',
-      );
-    }
+    const users = await this.prisma.user.findMany({ include: { assignedProject: true } });
+    return users.map(this.toResponseDto);
   }
 
   async findUsersWithoutProject(): Promise<UserResponseDto[]> {
-    try {
-      const users = await this.prisma.user.findMany({
-        where: { 
-          isActive: true,
-          role: UserRole.USER,
-          assignedProject: null
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-      return users.map(user => this.toResponseDto(user));
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'Failed to retrieve users without projects',
-      );
-    }
+    const users = await this.prisma.user.findMany({
+      where: { projectId: null },
+      include: { assignedProject: true },
+    });
+    return users.map(this.toResponseDto);
   }
 
   async findUserByRole(role: UserRole): Promise<UserResponseDto[]> {
-    try {
-      const users = await this.prisma.user.findMany({
-        where: { role, isActive: true },
-        include: {
-          assignedProject: {
-            select: { id: true, name: true, status: true }
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-      return users.map(user => this.toResponseDto(user));
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to retrieve users with role ${role}`,
-      );
-    }
+    const users = await this.prisma.user.findMany({
+      where: { role },
+      include: { assignedProject: true },
+    });
+    return users.map(this.toResponseDto);
   }
 
-  async findOneUser(id: string): Promise<UserResponseDto> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { id },
-        include: {
-          assignedProject: {
-            select: { id: true, name: true, description: true, status: true, endDate: true }
-          }
-        },
-      });
-
-      if (!user) {
-        throw new NotFoundException(`User with id ${id} not found`);
-      }
-
-      return this.toResponseDto(user);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to retrieve user');
-    }
+  async findActiveUsers(): Promise<UserResponseDto[]> {
+    const users = await this.prisma.user.findMany({
+      where: { isActive: true },
+      include: { assignedProject: true },
+    });
+    return users.map(this.toResponseDto);
   }
 
-  async findUserByEmail(email: string): Promise<UserResponseDto> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { email },
-        include: {
-          assignedProject: {
-            select: { id: true, name: true, status: true }
-          }
-        },
-      });
-
-      if (!user) {
-        throw new NotFoundException(`User with email ${email} not found`);
-      }
-
-      return this.toResponseDto(user);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to retrieve user');
-    }
-  }
-
-  async updateUser(id: string, data: UpdateUserDto): Promise<UserResponseDto> {
-    try {
-      const existingUser = await this.prisma.user.findUnique({
-        where: { id },
-      });
-
-      if (!existingUser) {
-        throw new NotFoundException(`User with id ${id} not found`);
-      }
-
-      if (data.email && data.email !== existingUser.email) {
-        const emailConflict = await this.prisma.user.findUnique({
-          where: { email: data.email },
-        });
-
-        if (emailConflict) {
-          throw new ConflictException('Another user with this email exists');
-        }
-      }
-
-      const updateData: any = {};
-      
-      if (data.name) updateData.name = data.name;
-      if (data.email) updateData.email = data.email;
-      if (data.isActive !== undefined) updateData.isActive = data.isActive;
-      if (data.role) updateData.role = data.role;
-      
-      if (data.password) {
-        updateData.password = await bcrypt.hash(data.password, this.saltRounds);
-      }
-
-      const updatedUser = await this.prisma.user.update({
-        where: { id },
-        data: updateData,
-        include: {
-          assignedProject: {
-            select: { id: true, name: true, status: true }
-          }
-        },
-      });
-
-      return this.toResponseDto(updatedUser);
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ConflictException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to update user');
-    }
-  }
-
-  async updateUserLastLogin(id: string): Promise<void> {
-    try {
-      await this.prisma.user.update({
-        where: { id },
-        data: { lastLogin: new Date() },
-      });
-    } catch (error) {
-      throw new InternalServerErrorException('Failed to update last login');
-    }
-  }
-
-  async assignUserProject(userId: string, projectId: string): Promise<UserResponseDto> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        include: { assignedProject: true }
-      });
-
-      if (!user) {
-        throw new NotFoundException(`User with id ${userId} not found`);
-      }
-
-      if (user.role === UserRole.ADMIN) {
-        throw new BadRequestException('Cannot assign projects to admin users');
-      }
-
-      if (user.assignedProject) {
-        throw new ConflictException('User already has an assigned project');
-      }
-
-      const project = await this.prisma.project.findUnique({
-        where: { id: projectId },
-        include: { assignedUser: true }
-      });
-
-      if (!project) {
-        throw new NotFoundException(`Project with id ${projectId} not found`);
-      }
-
-      if (project.assignedUser) {
-        throw new ConflictException('Project is already assigned to another user');
-      }
-
-      const updatedUser = await this.prisma.user.update({
-        where: { id: userId },
-        data: {
-          assignedProject: {
-            connect: { id: projectId }
-          }
-        },
-        include: {
-          assignedProject: {
-            select: { id: true, name: true, description: true, status: true, endDate: true }
-          }
-        },
-      });
-
-      return this.toResponseDto(updatedUser);
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ConflictException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to assign project');
-    }
-  }
-
-  async unassignUserProject(userId: string): Promise<UserResponseDto> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        include: { assignedProject: true }
-      });
-
-      if (!user) {
-        throw new NotFoundException(`User with id ${userId} not found`);
-      }
-
-      if (!user.assignedProject) {
-        throw new BadRequestException('User has no assigned project');
-      }
-
-      const updatedUser = await this.prisma.user.update({
-        where: { id: userId },
-        data: {
-          assignedProject: {
-            disconnect: true
-          }
-        },
-        include: {
-          assignedProject: {
-            select: { id: true, name: true, status: true }
-          }
-        },
-      });
-
-      return this.toResponseDto(updatedUser);
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to unassign project');
-    }
-  }
-
-  async getUserWithPassword(email: string): Promise<User> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { email },
-        include: {
-          assignedProject: {
-            select: { id: true, name: true, status: true }
-          }
-        }
-      });
-
-      if (!user) {
-        throw new NotFoundException(`User with email ${email} not found`);
-      }
-      return user;
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to retrieve user');
-    }
+  // ========== PASSWORD ==========
+  async getUserWithPassword(email: string) {
+    return this.prisma.user.findUnique({ where: { email } });
   }
 
   async changeUserPassword(
     id: string,
-    currentPassword: string,
+    oldPassword: string,
     newPassword: string,
-  ): Promise<{ message: string }> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { id },
-      });
-
-      if (!user) {
-        throw new NotFoundException(`User with id ${id} not found`);
-      }
-
-      const isCurrentPasswordValid = await bcrypt.compare(
-        currentPassword,
-        user.password,
-      );
-      
-      if (!isCurrentPasswordValid) {
-        throw new BadRequestException('Current password is incorrect');
-      }
-
-      const hashedNewPassword = await bcrypt.hash(newPassword, this.saltRounds);
-
-      await this.prisma.user.update({
-        where: { id },
-        data: { password: hashedNewPassword },
-      });
-
-      return { message: 'Password changed successfully' };
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to change password');
+  ): Promise<MessageResponseDto> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user || !(await bcrypt.compare(oldPassword, user.password))) {
+      throw new BadRequestException('Invalid credentials');
     }
+
+    const hashed = await bcrypt.hash(newPassword, this.saltRounds);
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { password: hashed },
+    });
+
+    return new MessageResponseDto('Password changed successfully');
   }
 
+  async updateUser(id: string, data: UpdateUserDto): Promise<UserResponseDto> {
+    const user = await this.prisma.user.update({
+      where: { id },
+      data,
+      include: { assignedProject: true },
+    });
+    return this.toResponseDto(user);
+  }
+
+  async updateUserLastLogin(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLogin: new Date() },
+    });
+  }
+
+  async updateProfileImage(
+    id: string,
+    image: { profileImageUrl: string | null; profileImageId: string | null },
+  ): Promise<UserResponseDto> {
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: {
+        profileImageUrl: image.profileImageUrl,
+        profileImageId: image.profileImageId,
+      },
+      include: { assignedProject: true },
+    });
+    return this.toResponseDto(user);
+  }
+
+  // ========== PROJECT ASSIGNMENT ==========
+  async assignUserProject(userId: string, projectId: string): Promise<UserResponseDto> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { projectId },
+      include: { assignedProject: true },
+    });
+    return this.toResponseDto(user);
+  }
+
+  async unassignUserProject(userId: string): Promise<UserResponseDto> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { projectId: null },
+      include: { assignedProject: true },
+    });
+    return this.toResponseDto(user);
+  }
+
+  // ========== DELETE & STATUS ==========
   async deactivateUser(id: string): Promise<{ message: string }> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { id, isActive: true },
-      });
-
-      if (!user) {
-        throw new NotFoundException(`User with id ${id} not found`);
-      }
-
-      await this.prisma.user.update({
-        where: { id },
-        data: { isActive: false },
-      });
-
-      return { message: `User ${user.name} has been deactivated successfully` };
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to deactivate user');
-    }
+    await this.prisma.user.update({
+      where: { id },
+      data: { isActive: false },
+    });
+    return { message: 'User deactivated successfully' };
   }
 
   async deleteUser(id: string): Promise<{ message: string }> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { id },
-        include: { assignedProject: true }
-      });
-
-      if (!user) {
-        throw new NotFoundException(`User with ID ${id} not found`);
-      }
-
-      if (user.assignedProject) {
-        await this.prisma.project.update({
-          where: { id: user.assignedProject.id },
-          data: { assignedUserId: null }
-        });
-      }
-
-      await this.prisma.user.delete({
-        where: { id },
-      });
-
-      return { message: `User ${user.name} has been permanently deleted` };
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to delete user');
-    }
+    await this.prisma.user.delete({ where: { id } });
+    return { message: 'User deleted successfully' };
   }
 
+  // ========== HELPER ==========
   private toResponseDto(user: any): UserResponseDto {
     return new UserResponseDto({
       id: user.id,
@@ -470,10 +184,11 @@ export class UsersService {
       name: user.name,
       role: user.role,
       isActive: user.isActive,
-      lastLogin: user.lastLogin,
+      lastLogin: user.lastLogin ?? undefined,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-      assignedProject: user.assignedProject,
+      assignedProject: user.assignedProject ?? null,
+      profileImageUrl: user.profileImageUrl ?? '',
     });
   }
 }

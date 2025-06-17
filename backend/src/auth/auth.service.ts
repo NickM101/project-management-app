@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
-import { UserRole } from 'generated/prisma';
+import { UserRole } from '../generated/prisma';
 
 import { JwtPayload } from './interfaces/jwt.interface';
 import { AuthResponse, AuthUser } from './interfaces/auth.interface';
@@ -45,16 +45,7 @@ export class AuthService {
         role: registerDto.role || UserRole.USER,
       });
 
-      // Send welcome emails
-      // try {
-        // await this.mailerService.sendWelcomeEmail(user.email, {
-        //   name: user.name,
-        //   email: user.email,
-        // });
-      //   console.log(`Welcome email would be sent to ${user.email}`);
-      // } catch (emailError) {
-      //   console.warn(`Failed to send welcome email to ${user.email}:`, emailError.message);
-      // }
+      
 
       
       const payload: JwtPayload = {
@@ -247,16 +238,9 @@ export class AuthService {
         return { message: 'If your email is registered, you will receive a password reset link.' };
       }
 
-      // Generate password reset token (you might want to implement this)
-      // const resetToken = this.tokenService.generateResetToken(user.id);
-      
-      // Send password reset email
+
       try {
-        // await this.mailerService.sendPasswordResetEmail(user.email, {
-        //   name: user.name,
-        //   resetToken,
-        //   resetUrl: `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`
-        // });
+      
         console.log(`Password reset email would be sent to ${user.email}`);
       } catch (emailError) {
         console.warn(`Failed to send password reset email to ${user.email}:`, emailError.message);

@@ -9,37 +9,52 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
-  HttpStatus,
   HttpCode,
+  HttpStatus,
+  BadRequestException,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+  ApiBody,
+  ApiConsumes,
+} from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 
-import { UserRole } from 'generated/prisma';
+import { UserRole } from 'src/auth/user-role';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserResponseDto } from './dto/create-user.dto';
+import { UserResponseDto } from './dto/user-response.dto';
 import { ChangePasswordDto } from 'src/auth/dto/change-password.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AuthenticatedUser } from 'src/auth/interfaces/jwt.interface';
+import { FileUploadInterceptor } from 'src/common/interceptors/file-upload.interceptor';
+import { multerOptions } from 'src/config/multer.config';
+import { UploadImageResponseDto } from './dto/upload-image.dto';
+import { CloudinaryService } from 'src/common/cloudinary/cloudinary.service';
+import { MessageResponseDto } from 'src/common/dto/message-response.dto';
 
 @ApiTags('users')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard)
 @Controller('users')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   @Get()
-  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get all users (Admin only)' })
-  @ApiQuery({ name: 'active', required: false, type: Boolean, description: 'Filter by active status' })
-  @ApiQuery({ name: 'role', required: false, enum: UserRole, description: 'Filter by user role' })
-  @ApiQuery({ name: 'withoutProject', required: false, type: Boolean, description: 'Get users without assigned projects' })
-  @ApiResponse({ status: 200, description: 'Users retrieved successfully', type: [UserResponseDto] })
   async findAll(
     @Query('active') active?: string,
     @Query('role') role?: UserRole,
@@ -48,39 +63,30 @@ export class UsersController {
     if (withoutProject === 'true') {
       return this.usersService.findUsersWithoutProject();
     }
-    
-    if (role) {
+
+    if (role === UserRole.ADMIN || role === UserRole.USER) {
       return this.usersService.findUserByRole(role);
     }
-    
+
     if (active === 'true') {
       return this.usersService.findActiveUsers();
     }
-    
+
     return this.usersService.findAllUsers();
   }
 
   @Get('profile')
-  @ApiOperation({ summary: 'Get current user profile' })
-  @ApiResponse({ status: 200, description: 'User profile retrieved successfully', type: UserResponseDto })
   async getProfile(@CurrentUser('id') userId: string): Promise<UserResponseDto> {
     return this.usersService.findOneUser(userId);
   }
 
   @Get(':id')
-  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get user by ID (Admin only)' })
-  @ApiParam({ name: 'id', description: 'User ID' })
-  @ApiResponse({ status: 200, description: 'User retrieved successfully', type: UserResponseDto })
-  @ApiResponse({ status: 404, description: 'User not found' })
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
     return this.usersService.findOneUser(id);
   }
 
   @Patch('profile')
-  @ApiOperation({ summary: 'Update current user profile' })
-  @ApiResponse({ status: 200, description: 'Profile updated successfully', type: UserResponseDto })
   async updateProfile(
     @CurrentUser('id') userId: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -90,12 +96,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Update user by ID (Admin only)' })
-  @ApiParam({ name: 'id', description: 'User ID' })
-  @ApiResponse({ status: 200, description: 'User updated successfully', type: UserResponseDto })
-  @ApiResponse({ status: 404, description: 'User not found' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -105,48 +106,25 @@ export class UsersController {
 
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Change current user password' })
-  @ApiResponse({ status: 200, description: 'Password changed successfully' })
-  @ApiResponse({ status: 400, description: 'Current password is incorrect' })
   async changePassword(
     @CurrentUser('id') userId: string,
-    @Body() changePasswordDto: ChangePasswordDto,
-  ): Promise<{ message: string }> {
-    return this.usersService.changeUserPassword(
-      userId,
-      changePasswordDto.currentPassword,
-      changePasswordDto.newPassword,
-    );
+    @Body() dto: ChangePasswordDto,
+  ): Promise<MessageResponseDto> {
+    return this.usersService.changeUserPassword(userId, dto.currentPassword, dto.newPassword);
   }
 
   @Post(':id/change-password')
-  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Change user password (Admin only)' })
-  @ApiParam({ name: 'id', description: 'User ID' })
-  @ApiResponse({ status: 200, description: 'Password changed successfully' })
   async changeUserPassword(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() changePasswordDto: ChangePasswordDto,
-  ): Promise<{ message: string }> {
-    return this.usersService.changeUserPassword(
-      id,
-      changePasswordDto.currentPassword,
-      changePasswordDto.newPassword,
-    );
+    @Body() dto: ChangePasswordDto,
+  ): Promise<MessageResponseDto> {
+    return this.usersService.changeUserPassword(id, dto.currentPassword, dto.newPassword);
   }
 
   @Post(':userId/assign-project/:projectId')
-  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Assign project to user (Admin only)' })
-  @ApiParam({ name: 'userId', description: 'User ID' })
-  @ApiParam({ name: 'projectId', description: 'Project ID' })
-  @ApiResponse({ status: 200, description: 'Project assigned successfully', type: UserResponseDto })
-  @ApiResponse({ status: 404, description: 'User or project not found' })
-  @ApiResponse({ status: 409, description: 'User already has a project or project already assigned' })
   async assignProject(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -155,39 +133,85 @@ export class UsersController {
   }
 
   @Delete(':userId/unassign-project')
-  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Unassign project from user (Admin only)' })
-  @ApiParam({ name: 'userId', description: 'User ID' })
-  @ApiResponse({ status: 200, description: 'Project unassigned successfully', type: UserResponseDto })
-  @ApiResponse({ status: 400, description: 'User has no assigned project' })
-  async unassignProject(
-    @Param('userId', ParseUUIDPipe) userId: string,
-  ): Promise<UserResponseDto> {
+  async unassignProject(@Param('userId', ParseUUIDPipe) userId: string): Promise<UserResponseDto> {
     return this.usersService.unassignUserProject(userId);
   }
 
   @Patch(':id/deactivate')
-  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Deactivate user (Admin only)' })
-  @ApiParam({ name: 'id', description: 'User ID' })
-  @ApiResponse({ status: 200, description: 'User deactivated successfully' })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  async deactivate(@Param('id', ParseUUIDPipe) id: string): Promise<{ message: string }> {
+  async deactivate(@Param('id', ParseUUIDPipe) id: string): Promise<MessageResponseDto> {
     return this.usersService.deactivateUser(id);
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Permanently delete user (Admin only)' })
-  @ApiParam({ name: 'id', description: 'User ID' })
-  @ApiResponse({ status: 200, description: 'User deleted successfully' })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<{ message: string }> {
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<MessageResponseDto> {
     return this.usersService.deleteUser(id);
+  }
+
+  @Post('profile-image')
+  @UseInterceptors(
+    FileInterceptor('image', multerOptions),
+    FileUploadInterceptor,
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: { type: 'string', format: 'binary' },
+      },
+      required: ['image'],
+    },
+  })
+  async uploadProfileImage(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<UploadImageResponseDto> {
+    try {
+      const currentUser = await this.usersService.findOneUser(user.id);
+
+      const uploadResult = currentUser.profileImageId
+        ? await this.cloudinaryService.updateImage(file, currentUser.profileImageId, 'profiles')
+        : await this.cloudinaryService.uploadImage(
+            file,
+            'profiles',
+            `profile_${user.id}_${Date.now()}`,
+          );
+
+      await this.usersService.updateProfileImage(user.id, {
+        profileImageId: uploadResult.public_id,
+        profileImageUrl: uploadResult.secure_url,
+      });
+
+      return new UploadImageResponseDto(uploadResult);
+    } catch (error) {
+      throw new BadRequestException(`Profile image upload failed: ${error.message}`);
+    }
+  }
+
+  @Delete('profile-image')
+  async deleteProfileImage(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<MessageResponseDto> {
+    try {
+      const currentUser = await this.usersService.findOneUser(user.id);
+
+      if (!currentUser.profileImageId) {
+        throw new BadRequestException('No profile image to delete');
+      }
+
+      await this.cloudinaryService.deleteImage(currentUser.profileImageId);
+
+      await this.usersService.updateProfileImage(user.id, {
+        profileImageId: null,
+        profileImageUrl: null,
+      });
+
+      return { message: 'Profile image deleted successfully' };
+    } catch (error) {
+      throw new BadRequestException(`Failed to delete profile image: ${error.message}`);
+    }
   }
 }

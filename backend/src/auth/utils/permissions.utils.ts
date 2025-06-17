@@ -1,4 +1,4 @@
-import { UserRole } from 'generated/prisma';
+import { UserRole } from '../../generated/prisma';
 import { Permission } from '../enums/permissions.enum';
 
 export class PermissionsUtils {

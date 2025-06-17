@@ -1,4 +1,4 @@
-import { UserRole } from "generated/prisma";
+import { UserRole } from '../../generated/prisma';
 
 export interface User {
     id: string;
@@ -11,4 +11,5 @@ export interface User {
     updatedAt: Date;
     lastLogin?: Date | null;
     isActive: boolean;
+    
 }

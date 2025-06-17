@@ -10,10 +10,15 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRole } from 'generated/prisma';
+
+export enum UserRole {
+  USER = 'USER',
+  ADMIN = 'ADMIN',
+
+}
 
 export class RegisterDto {
-  @ApiProperty({ example: 'John Doe', description: 'Full name of the user' })
+  @ApiProperty({ example: 'Alex mods', description: 'Full name of the user' })
   @IsString({ message: 'Name must be a string' })
   @IsNotEmpty({ message: 'Name is required' })
   @MinLength(2, { message: 'Name must be at least 2 characters long' })

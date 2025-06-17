@@ -1,4 +1,4 @@
-import { UserRole } from 'generated/prisma';
+import { UserRole } from '../generated/prisma';
 import { Permission } from 'src/auth/enums/permissions.enum';
 import { PermissionRule } from 'src/auth/interfaces/permissions.interface';
 

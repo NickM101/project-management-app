@@ -1,36 +1,13 @@
-import { Injectable, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { PrismaClient } from 'generated/prisma';
+// src/config/prisma.config.ts
+import { Module } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
-@Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  constructor() {
-    super({
-      log: ['error', 'info', 'query', 'warn'],
-    });
-  }
+const prisma = new PrismaClient();
 
-  async onModuleInit() {
-    await this.$connect();
-  }
-
-  async onModuleDestroy() {
-    await this.$disconnect();
-  }
-}
+export const getPrismaClient = () => prisma;
 
 @Module({
-  providers: [PrismaService],
-  exports: [PrismaService],
+  providers: [{ provide: PrismaClient, useValue: prisma }],
+  exports: [PrismaClient],
 })
 export class PrismaModule {}
-
-// Legacy function maintained for backward compatibility
-let prisma: PrismaClient;
-export const getPrismaClient = (): PrismaClient => {
-  if (!prisma) {
-    prisma = new PrismaClient({
-      log: ['error', 'info', 'query', 'warn'],
-    });
-  }
-  return prisma;
-};

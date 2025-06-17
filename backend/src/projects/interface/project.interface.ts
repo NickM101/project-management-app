@@ -1,4 +1,5 @@
-import { ProjectStatus } from 'generated/prisma';
+import { ProjectStatus } from '@generated/prisma';
+
 
 export interface Project {
   id: string;
@@ -9,4 +10,6 @@ export interface Project {
   assignedUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  profileImageId?: string;     
+  profileImageUrl?: string;     
 }

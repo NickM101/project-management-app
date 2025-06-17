@@ -5,14 +5,14 @@ import {
   ConflictException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { ProjectStatus, UserRole } from 'generated/prisma';
+import { ProjectStatus, UserRole } from '../generated/prisma';
 import { getPrismaClient } from 'src/config/prisma.config';
 
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectResponseDto } from './dto/create-project.dto';
 import { Project } from './interface/project.interface';
-import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class ProjectsService {

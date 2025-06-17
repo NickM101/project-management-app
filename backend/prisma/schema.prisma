@@ -21,34 +21,37 @@ enum ProjectStatus {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  name      String
-  password  String
-  role      UserRole  @default(USER)
-  lastLogin DateTime? @map("last_login")
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id               String    @id @default(uuid())
+  email            String    @unique
+  name             String
+  password         String
+  role             UserRole  @default(USER)
+  lastLogin        DateTime? @map("last_login")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  profileImageId   String?   @map("profile_image_id") @unique
+  profileImageUrl  String?   @map("profile_image_url")
 
-  assignedProject Project?
+  // One-to-one relation
+  assignedProject  Project?
 
   @@map("users")
 }
 
 model Project {
-  id          String        @id @default(uuid())
-  name        String        @db.VarChar(255)
-  description String?        @db.Text
-  endDate     DateTime      @map("end_date")
-  status      ProjectStatus @default(NOT_STARTED)
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  completedAt DateTime?     @map("completed_at")
+  id              String        @id @default(uuid())
+  name            String        @db.VarChar(255)
+  description     String?       @db.Text
+  endDate         DateTime      @map("end_date")
+  status          ProjectStatus @default(NOT_STARTED)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  completedAt     DateTime?     @map("completed_at")
   
-  assignedUserId String? @unique @map("assigned_user_id")
-  assignedUser   User?   @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
-  
+  assignedUserId  String?       @map("assigned_user_id") @unique
+  assignedUser    User?         @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+
   @@map("projects")
   @@index([status])
   @@index([endDate])
