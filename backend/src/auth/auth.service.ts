@@ -102,6 +102,10 @@ export class AuthService {
       this.logger.log('User found and active');
       const userWithPassword = await this.usersService.getUserWithPassword(loginDto.email);
 
+      if (!userWithPassword) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
       const isPasswordValid = await bcrypt.compare(
         loginDto.password,
         userWithPassword.password,

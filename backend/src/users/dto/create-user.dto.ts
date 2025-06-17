@@ -1,5 +1,33 @@
-import { IsOptional, IsString, IsEmail, IsBoolean, IsDate, MinLength, IsEnum, Matches } from 'class-validator';
+import { IsString, IsEmail, MinLength, IsEnum, IsOptional, Matches, IsBoolean } from 'class-validator';
 import { UserRole } from 'generated/prisma';
+
+export class CreateUserDto {
+  @IsString()
+  name: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  @Matches(/((?=.*\\d)|(?=.*\\W+))(?![.\\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+    message: 'Password must contain uppercase, lowercase, and number/special character',
+  })
+  password: string;
+
+  @IsEnum(UserRole)
+  role: UserRole;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+
+  @IsOptional()
+  profileImageId?: string;
+
+  @IsOptional()
+  profileImageUrl?: string;
+}
 
 export class UpdateUserDto {
   @IsOptional()
@@ -13,7 +41,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString({ message: 'Password must be a string' })
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+  @Matches(/((?=.*\\d)|(?=.*\\W+))(?![.\\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
     message: 'Password must contain uppercase, lowercase, and number/special character',
   })
   password?: string;

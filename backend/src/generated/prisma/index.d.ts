@@ -29,11 +29,14 @@ export type Project = $Result.DefaultSelection<Prisma.$ProjectPayload>
  */
 export namespace $Enums {
   export const UserRole: {
-  USER: 'USER',
-  ADMIN: 'ADMIN'
-};
+    USER: 'USER',
+    ADMIN: 'ADMIN'
+  };
 
-export type UserRole = (typeof UserRole)[keyof typeof UserRole]
+  export type UserRole = (typeof UserRole)[keyof typeof UserRole]
+}
+export type UserRole = $Enums.UserRole
+export const UserRole: typeof $Enums.UserRole
 
 
 export const ProjectStatus: {
@@ -45,7 +48,7 @@ export const ProjectStatus: {
 
 export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus]
 
-}
+
 
 export type UserRole = $Enums.UserRole
 

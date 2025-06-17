@@ -6,12 +6,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { UserRole } from '../auth/interfaces/user-role';
+import { PrismaService } from '../prisma/prisma.service';
+import { UserRole } from '../../generated/prisma'; 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
-import { MessageResponseDto } from './dto/message-response.dto';
+import { MessageResponseDto } from '../common/dto/message-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -65,7 +65,7 @@ export class UsersService {
 
   async findUsersWithoutProject(): Promise<UserResponseDto[]> {
     const users = await this.prisma.user.findMany({
-      where: { projectId: null },
+      where: { assignedProject: null },
       include: { assignedProject: true },
     });
     return users.map(this.toResponseDto);
@@ -130,12 +130,12 @@ export class UsersService {
 
   async updateProfileImage(
     id: string,
-    image: { profileImageUrl: string | null; profileImageId: string | null },
+    image: { profileImage: string | null; profileImageId: string | null },
   ): Promise<UserResponseDto> {
     const user = await this.prisma.user.update({
       where: { id },
       data: {
-        profileImageUrl: image.profileImageUrl,
+        profileImageUrl: image.profileImage,
         profileImageId: image.profileImageId,
       },
       include: { assignedProject: true },
@@ -145,24 +145,24 @@ export class UsersService {
 
   // ========== PROJECT ASSIGNMENT ==========
   async assignUserProject(userId: string, projectId: string): Promise<UserResponseDto> {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { projectId },
-      include: { assignedProject: true },
+    // Since User model has no projectId, update Project.assignedUserId instead
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: { assignedUserId: userId },
     });
-    return this.toResponseDto(user);
+    return this.findOneUser(userId);
   }
 
   async unassignUserProject(userId: string): Promise<UserResponseDto> {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { projectId: null },
-      include: { assignedProject: true },
+    // Since User model has no projectId, update Project.assignedUserId instead
+    await this.prisma.project.updateMany({
+      where: { assignedUserId: userId },
+      data: { assignedUserId: null },
     });
-    return this.toResponseDto(user);
+    return this.findOneUser(userId);
   }
 
-  // ========== DELETE & STATUS ==========
+
   async deactivateUser(id: string): Promise<{ message: string }> {
     await this.prisma.user.update({
       where: { id },
@@ -188,7 +188,7 @@ export class UsersService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       assignedProject: user.assignedProject ?? null,
-      profileImageUrl: user.profileImageUrl ?? '',
+      profileImage:  user.profileImage ?? '',
     });
   }
 }

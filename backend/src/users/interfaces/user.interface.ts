@@ -11,5 +11,4 @@ export interface User {
     updatedAt: Date;
     lastLogin?: Date | null;
     isActive: boolean;
-    
 }

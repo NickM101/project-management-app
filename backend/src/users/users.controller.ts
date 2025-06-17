@@ -26,8 +26,7 @@ import {
   ApiConsumes,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-
-import { UserRole } from 'src/auth/user-role';
+import { UserRole } from 'src/auth/decorators/roles.decorator';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -182,7 +181,7 @@ export class UsersController {
 
       await this.usersService.updateProfileImage(user.id, {
         profileImageId: uploadResult.public_id,
-        profileImageUrl: uploadResult.secure_url,
+        profileImage: uploadResult.secure_url,
       });
 
       return new UploadImageResponseDto(uploadResult);
@@ -206,7 +205,7 @@ export class UsersController {
 
       await this.usersService.updateProfileImage(user.id, {
         profileImageId: null,
-        profileImageUrl: null,
+        profileImage: null,
       });
 
       return { message: 'Profile image deleted successfully' };
